@@ -57,7 +57,7 @@ bool solveFromPoint(SolvingState* state, uint x, uint y)
         if (!moved)
             continue;
 
-        /*
+
          switch (dir)
          {
          case RIGHT:
@@ -78,7 +78,7 @@ bool solveFromPoint(SolvingState* state, uint x, uint y)
          debugStr[0] = L'\n';
          sprintMatrix(debugStr + 1, m);
          debug(debugStr);
-         */
+
 
         switch (dir)
         {
@@ -98,13 +98,13 @@ bool solveFromPoint(SolvingState* state, uint x, uint y)
                 break;
         }
 
-        /* debug(L"dead ends: %u", m->deadEndCount); */
+        debug(L"dead ends: %u", m->deadEndCount);
         if (isSolved(m))
         {
             state->path[state->moveI] = L'\0';
             solved = true;
         }
-        else if (m->deadEndCount <= 2 && !isHalfed(m))
+        else if (!isHalfed(m)) //(m->deadEndCount <= 2)
         {
             /* still solvable */
             if (solveFromPoint(state, tx, ty))
@@ -134,7 +134,7 @@ bool solveFromPoint(SolvingState* state, uint x, uint y)
                 break;
         }
 
-        /*
+
          switch (dir)
          {
          case RIGHT:
@@ -155,7 +155,7 @@ bool solveFromPoint(SolvingState* state, uint x, uint y)
          debugStr[0] = L'\n';
          sprintMatrix(debugStr + 1, m);
          debug(debugStr);
-         */
+
 
         if (solved)
         {

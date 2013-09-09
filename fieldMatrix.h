@@ -2,6 +2,7 @@
 #define H_FIELDMATRIX
 
 #include "global.h"
+#include "countStack.h"
 
 void set(uint x, uint y, FieldType value, FieldMatrix* matrix);
 void allocMatrix(FieldMatrix* matrix);
@@ -23,6 +24,7 @@ void sprintQPath(wchar_t* qpath, FieldMatrix* matrix, Solution* s);
 bool isSolved(FieldMatrix* matrix);
 void toQPath(wchar_t* qpath, SolvingState* s);
 bool isHalfed(FieldMatrix* matrix);
-uint countFromPoint(uint x, uint y, FieldMatrix* matrix);
+double getUnoptimalFieldPercentage(FieldMatrix* matrix);
+uint countConnections(uint x, uint y, FieldMatrix* matrix);
 
 #endif

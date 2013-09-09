@@ -20,7 +20,7 @@ void set(uint x, uint y, FieldType value, FieldMatrix* matrix)
 
     checkDeadEnd(x, y, matrix);
 
-    /* radius 2
+    /* range 2, diagonally
      if (x + 2 < matrix->width && y + 2 < matrix->height)
      checkDeadEnd(x + 2, y + 2, matrix);
      if (x > 1 && y + 2 < matrix->height)
@@ -29,27 +29,25 @@ void set(uint x, uint y, FieldType value, FieldMatrix* matrix)
      checkDeadEnd(x - 2, y - 2, matrix);
      if (x + 2 < matrix->width && y > 1)
      checkDeadEnd(x + 2, y - 2, matrix);
-
-     if (x + 2 < matrix->width)
-     checkDeadEnd(x + 2, y, matrix);
-     if (y + 2 < matrix->height)
-     checkDeadEnd(x, y + 2, matrix);
-     if (x > 1)
-     checkDeadEnd(x - 2, y, matrix);
-     if (y > 1)
-     checkDeadEnd(x, y - 2, matrix);
      */
 
-    /* radius 1
-     if (x + 1 < matrix->width && y + 1 < matrix->height)
-     checkDeadEnd(x + 1, y + 1, matrix);
-     if (x > 0 && y + 1 < matrix->height)
-     checkDeadEnd(x - 1, y + 1, matrix);
-     if (x > 0 && y > 0)
-     checkDeadEnd(x - 1, y - 1, matrix);
-     if (x + 1 < matrix->width && y > 0)
-     checkDeadEnd(x + 1, y - 1, matrix);
-     */
+    if (x + 2 < matrix->width)
+        checkDeadEnd(x + 2, y, matrix);
+    if (y + 2 < matrix->height)
+        checkDeadEnd(x, y + 2, matrix);
+    if (x > 1)
+        checkDeadEnd(x - 2, y, matrix);
+    if (y > 1)
+        checkDeadEnd(x, y - 2, matrix);
+
+    if (x + 1 < matrix->width && y + 1 < matrix->height)
+        checkDeadEnd(x + 1, y + 1, matrix);
+    if (x > 0 && y + 1 < matrix->height)
+        checkDeadEnd(x - 1, y + 1, matrix);
+    if (x > 0 && y > 0)
+        checkDeadEnd(x - 1, y - 1, matrix);
+    if (x + 1 < matrix->width && y > 0)
+        checkDeadEnd(x + 1, y - 1, matrix);
 
     if (x + 1 < matrix->width)
         checkDeadEnd(x + 1, y, matrix);
@@ -131,6 +129,7 @@ void parseMatrix(SerMatrix* source, FieldMatrix* target)
             }
             i++;
         }
+    target->initFreeFieldCount = freeFieldCount;
     target->freeFieldCount = freeFieldCount;
 
     setInitConnections(target);
@@ -226,17 +225,17 @@ void setConnections(uint x, uint y, FieldMatrix* matrix)
         /* set new connections */
 
         /* right? */
-        if (x + 1 < matrix->width && matrix->fields[x + 1][y] == EMPTY)
-            matrix->connections[2 * x + 1][y] = true;
+        if (x + 1 < matrix->width)
+            matrix->connections[2 * x + 1][y] = matrix->initConnections[2 * x + 1][y];
         /* down? */
-        if (y + 1 < matrix->height && matrix->fields[x][y + 1] == EMPTY)
-            matrix->connections[2 * x][y] = true;
+        if (y + 1 < matrix->height)
+            matrix->connections[2 * x][y] = matrix->initConnections[2 * x][y];
         /* left? */
-        if (x > 0 && matrix->fields[x - 1][y] == EMPTY)
-            matrix->connections[2 * x - 1][y] = true;
+        if (x > 0)
+            matrix->connections[2 * x - 1][y] = matrix->initConnections[2 * x - 1][y];
         /* up? */
-        if (y > 0 && matrix->fields[x][y - 1] == EMPTY)
-            matrix->connections[2 * x][y - 1] = true;
+        if (y > 0)
+            matrix->connections[2 * x][y - 1] = matrix->initConnections[2 * x][y - 1];
     }
     else
     {
@@ -732,28 +731,95 @@ void toQPath(wchar_t* qpath, SolvingState* s)
 
 bool isHalfed(FieldMatrix* matrix)
 {
-    Point* p = &matrix->firstFreeField;
-    uint count = countFromPoint(p->x, p->y, matrix);
+    DirectedPoint p, nextP;
+    uint count = 0;
 
-    clear2dArray((void**) matrix->countedFields, matrix->width, matrix->height, sizeof(bool));
+    for (p.y = matrix->firstFreeField.y; p.y < matrix->height; p.y++)
+        for (p.x = matrix->firstFreeField.x; p.x < matrix->width; p.x++)
+        {
+            if (matrix->fields[p.x][p.y] == EMPTY)
+            {
+                /* found the first free field */
 
-    return count == matrix->freeFieldCount;
+                p.dirs = getConnections(p.x, p.y, matrix);
+                pushCountField(&p);
+
+                while (tryPopCountField(&p))
+                {
+                    if (matrix->countedFields[p.x][p.y])
+                        continue;
+
+                    count++;
+                    matrix->countedFields[p.x][p.y] = true;
+
+                    if ((p.dirs & RIGHT) != 0 && !matrix->countedFields[p.x + 1][p.y])
+                    {
+                        nextP.x = p.x + 1;
+                        nextP.y = p.y;
+                        nextP.dirs = getConnections(p.x + 1, p.y, matrix) & ~LEFT;
+                        pushCountField(&nextP);
+                    }
+
+                    if ((p.dirs & DOWN) != 0 && !matrix->countedFields[p.x][p.y + 1])
+                    {
+                        nextP.x = p.x;
+                        nextP.y = p.y + 1;
+                        nextP.dirs = getConnections(p.x, p.y + 1, matrix) & ~UP;
+                        pushCountField(&nextP);
+                    }
+
+                    if ((p.dirs & LEFT) != 0 && !matrix->countedFields[p.x - 1][p.y])
+                    {
+                        nextP.x = p.x - 1;
+                        nextP.y = p.y;
+                        nextP.dirs = getConnections(p.x - 1, p.y, matrix) & ~RIGHT;
+                        pushCountField(&nextP);
+                    }
+
+                    if ((p.dirs & UP) != 0 && !matrix->countedFields[p.x][p.y - 1])
+                    {
+                        nextP.x = p.x;
+                        nextP.y = p.y - 1;
+                        nextP.dirs = getConnections(p.x, p.y - 1, matrix) & ~DOWN;
+                        pushCountField(&nextP);
+                    }
+                }
+
+                clear2dArray((void**) matrix->countedFields, matrix->width, matrix->height, sizeof(bool));
+
+                return count != matrix->freeFieldCount;
+            }
+        }
+
+    fatalError(L"Matrix is already solved!");
+    return false;
 }
 
-uint countFromPoint(uint x, uint y, FieldMatrix* matrix)
+double getUnoptimalFieldPercentage(FieldMatrix* matrix)
 {
-    uint count = 1;
+    double unoptimalCount = 0;
+    uint x, y;
 
-    matrix->countedFields[x][y] = true;
+    for (y = matrix->firstFreeField.y; y < matrix->height; y++)
+        for (x = matrix->firstFreeField.x; x < matrix->width; x++)
+        {
+            if (countConnections(x, y, matrix) > 2)
+                unoptimalCount++;
+        }
 
-    if (x + 1 < matrix->width && !matrix->countedFields[x + 1][y])
-        count += countFromPoint(x + 1, y, matrix);
-    if (y + 1 < matrix->height && !matrix->countedFields[x][y + 1])
-        count += countFromPoint(x, y + 1, matrix);
-    if (x > 0 && !matrix->countedFields[x - 1][y])
-        count += countFromPoint(x - 1, y, matrix);
-    if (y > 0 && !matrix->countedFields[x][y - 1])
-        count += countFromPoint(x, y - 1, matrix);
+    return unoptimalCount / matrix->initFreeFieldCount;
+}
 
+uint countConnections(uint x, uint y, FieldMatrix* matrix)
+{
+    uint count = 0;
+    if (x + 1 < matrix->width && matrix->connections[2 * x + 1][y])
+        count++;
+    if (y + 1 < matrix->height && matrix->connections[2 * x][y])
+        count++;
+    if (x > 0 && matrix->connections[2 * x - 1][y])
+        count++;
+    if (y > 0 && matrix->connections[2 * x][y - 1])
+        count++;
     return count;
 }

@@ -17,7 +17,8 @@
 #define swprintf _snwprintf
 #endif
 
-#define MAX_STARTPOINT_QUEUE_SIZE 10000
+#define MAX_STARTPOINT_QUEUE_SIZE 5000
+#define MAX_COUNT_STACK_SIZE 10000
 #define MAX_QPATH_LEN 100
 
 typedef uint8_t byte;
@@ -73,6 +74,7 @@ typedef struct
     uint height;
     uint size;
     FieldType** fields;
+    uint initFreeFieldCount;
     uint freeFieldCount;
     uint deadEndCount;
     bool** initConnections;
@@ -98,6 +100,13 @@ typedef struct
     uint moveI;
     bool finished;
 } SolvingState;
+
+typedef struct
+{
+        uint x;
+        uint y;
+        Directions dirs;
+} DirectedPoint;
 
 void
 fatalError(const wchar_t* fmt, ...);
