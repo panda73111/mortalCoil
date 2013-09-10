@@ -1,5 +1,7 @@
 #include "fieldMatrix.h"
 
+wchar_t debugStr[1024];
+
 void set(uint x, uint y, FieldType value, FieldMatrix* matrix)
 {
     if (matrix->fields[x][y] == value)
@@ -101,6 +103,7 @@ void parseMatrix(SerMatrix* source, FieldMatrix* target)
     uint x, y, i = 0;
     uint freeFieldCount = 0;
     bool firstFreeSet = false;
+    double suboptPerc, prevSuboptPerc;
 
     target->width = w;
     target->height = h;
@@ -133,6 +136,10 @@ void parseMatrix(SerMatrix* source, FieldMatrix* target)
     target->freeFieldCount = freeFieldCount;
 
     setInitConnections(target);
+    suboptPerc = getSuboptimalFieldPercentage(target);
+    debug(L"Percentage of not optimal fields: %0.02f", suboptPerc * 100.0);
+    optimizeInitConnections(target);
+    debug(L"After optimization: %0.02f", suboptPerc * 100.0);
     copy2dArray((void**) target->connections, (void**) target->initConnections, 2 * w - 1, h, sizeof(bool));
 
     checkInitDeadEnds(target);
@@ -225,17 +232,17 @@ void setConnections(uint x, uint y, FieldMatrix* matrix)
         /* set new connections */
 
         /* right? */
-        if (x + 1 < matrix->width)
-            matrix->connections[2 * x + 1][y] = matrix->initConnections[2 * x + 1][y];
+        if (x + 1 < matrix->width && matrix->fields[x + 1][y] == EMPTY)
+            matrix->connections[2 * x + 1][y] = true;
         /* down? */
-        if (y + 1 < matrix->height)
-            matrix->connections[2 * x][y] = matrix->initConnections[2 * x][y];
+        if (y + 1 < matrix->height && matrix->fields[x][y + 1] == EMPTY)
+            matrix->connections[2 * x][y] = true;
         /* left? */
-        if (x > 0)
-            matrix->connections[2 * x - 1][y] = matrix->initConnections[2 * x - 1][y];
+        if (x > 0 && matrix->fields[x - 1][y] == EMPTY)
+            matrix->connections[2 * x - 1][y] = true;
         /* up? */
-        if (y > 0)
-            matrix->connections[2 * x][y - 1] = matrix->initConnections[2 * x][y - 1];
+        if (y > 0 && matrix->fields[x][y - 1] == EMPTY)
+            matrix->connections[2 * x][y - 1] = true;
     }
     else
     {
@@ -735,7 +742,7 @@ bool isHalfed(FieldMatrix* matrix)
     uint count = 0;
 
     for (p.y = matrix->firstFreeField.y; p.y < matrix->height; p.y++)
-        for (p.x = matrix->firstFreeField.x; p.x < matrix->width; p.x++)
+        for (p.x = 0; p.x < matrix->width; p.x++)
         {
             if (matrix->fields[p.x][p.y] == EMPTY)
             {
@@ -743,14 +750,11 @@ bool isHalfed(FieldMatrix* matrix)
 
                 p.dirs = getConnections(p.x, p.y, matrix);
                 pushCountField(&p);
+                matrix->countedFields[p.x][p.y] = true;
 
                 while (tryPopCountField(&p))
                 {
-                    if (matrix->countedFields[p.x][p.y])
-                        continue;
-
                     count++;
-                    matrix->countedFields[p.x][p.y] = true;
 
                     if ((p.dirs & RIGHT) != 0 && !matrix->countedFields[p.x + 1][p.y])
                     {
@@ -758,6 +762,7 @@ bool isHalfed(FieldMatrix* matrix)
                         nextP.y = p.y;
                         nextP.dirs = getConnections(p.x + 1, p.y, matrix) & ~LEFT;
                         pushCountField(&nextP);
+                        matrix->countedFields[nextP.x][nextP.y] = true;
                     }
 
                     if ((p.dirs & DOWN) != 0 && !matrix->countedFields[p.x][p.y + 1])
@@ -766,6 +771,7 @@ bool isHalfed(FieldMatrix* matrix)
                         nextP.y = p.y + 1;
                         nextP.dirs = getConnections(p.x, p.y + 1, matrix) & ~UP;
                         pushCountField(&nextP);
+                        matrix->countedFields[nextP.x][nextP.y] = true;
                     }
 
                     if ((p.dirs & LEFT) != 0 && !matrix->countedFields[p.x - 1][p.y])
@@ -774,6 +780,7 @@ bool isHalfed(FieldMatrix* matrix)
                         nextP.y = p.y;
                         nextP.dirs = getConnections(p.x - 1, p.y, matrix) & ~RIGHT;
                         pushCountField(&nextP);
+                        matrix->countedFields[nextP.x][nextP.y] = true;
                     }
 
                     if ((p.dirs & UP) != 0 && !matrix->countedFields[p.x][p.y - 1])
@@ -782,6 +789,7 @@ bool isHalfed(FieldMatrix* matrix)
                         nextP.y = p.y - 1;
                         nextP.dirs = getConnections(p.x, p.y - 1, matrix) & ~DOWN;
                         pushCountField(&nextP);
+                        matrix->countedFields[nextP.x][nextP.y] = true;
                     }
                 }
 
@@ -795,31 +803,54 @@ bool isHalfed(FieldMatrix* matrix)
     return false;
 }
 
-double getUnoptimalFieldPercentage(FieldMatrix* matrix)
+double getSuboptimalFieldPercentage(FieldMatrix* matrix)
 {
-    double unoptimalCount = 0;
+    double suboptimalCount = 0;
     uint x, y;
 
     for (y = matrix->firstFreeField.y; y < matrix->height; y++)
-        for (x = matrix->firstFreeField.x; x < matrix->width; x++)
+        for (x = 0; x < matrix->width; x++)
         {
-            if (countConnections(x, y, matrix) > 2)
-                unoptimalCount++;
+            if (countInitConnections(x, y, matrix) > 2)
+                suboptimalCount++;
         }
 
-    return unoptimalCount / matrix->initFreeFieldCount;
+    return suboptimalCount / matrix->initFreeFieldCount;
 }
 
-uint countConnections(uint x, uint y, FieldMatrix* matrix)
+uint countInitConnections(uint x, uint y, FieldMatrix* matrix)
 {
     uint count = 0;
-    if (x + 1 < matrix->width && matrix->connections[2 * x + 1][y])
+    if (x + 1 < matrix->width && matrix->initConnections[2 * x + 1][y])
         count++;
-    if (y + 1 < matrix->height && matrix->connections[2 * x][y])
+    if (y + 1 < matrix->height && matrix->initConnections[2 * x][y])
         count++;
-    if (x > 0 && matrix->connections[2 * x - 1][y])
+    if (x > 0 && matrix->initConnections[2 * x - 1][y])
         count++;
-    if (y > 0 && matrix->connections[2 * x][y - 1])
+    if (y > 0 && matrix->initConnections[2 * x][y - 1])
         count++;
     return count;
+}
+
+void optimizeInitConnections(FieldMatrix* matrix)
+{
+    debugStr[0] = L'\n';
+    sprintMatrix(debugStr + 1, matrix);
+    sprintSuboptimalFields(debugStr + 1, matrix);
+    debug(debugStr);
+}
+
+void sprintSuboptimalFields(wchar_t* str, FieldMatrix* matrix)
+{
+    uint x, y, w, h;
+
+    w = matrix->width;
+    h = matrix->height;
+
+        for (y = matrix->firstFreeField.y; y < h; y++)
+            for (x = 0; x < w; x++)
+            {
+                if (countInitConnections(x, y, matrix) > 2)
+                    str[y * (w + 1) + x] = SUBOPTIMAL_CHAR;
+            }
 }

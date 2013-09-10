@@ -3,9 +3,9 @@
 int main(int argc, char** args)
 {
 
-    wchar_t* flashVarStr =
-            L"x=11&y=9&board=XX............XX.........X..X.........XX......XXXXX..................X........X...X............X...";
+    wchar_t* flashVarStr[MAX_SERMATRIX_STRLEN];
     unsigned short level = 20;
+    FILE* matrixFile;
 
     SerMatrix sm;
     FieldMatrix m;
@@ -13,6 +13,8 @@ int main(int argc, char** args)
     Solution s;
     clock_t startTime, timeDiff;
     int mSecs;
+
+    matrixFile = fopen("
 
     setlocale(LC_ALL, "");
 

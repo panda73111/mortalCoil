@@ -24,7 +24,9 @@ void sprintQPath(wchar_t* qpath, FieldMatrix* matrix, Solution* s);
 bool isSolved(FieldMatrix* matrix);
 void toQPath(wchar_t* qpath, SolvingState* s);
 bool isHalfed(FieldMatrix* matrix);
-double getUnoptimalFieldPercentage(FieldMatrix* matrix);
-uint countConnections(uint x, uint y, FieldMatrix* matrix);
+double getSuboptimalFieldPercentage(FieldMatrix* matrix);
+uint countInitConnections(uint x, uint y, FieldMatrix* matrix);
+void optimizeInitConnections(FieldMatrix* matrix);
+void sprintSuboptimalFields(wchar_t* str, FieldMatrix* matrix);
 
 #endif

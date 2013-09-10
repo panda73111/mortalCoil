@@ -17,6 +17,7 @@
 #define swprintf _snwprintf
 #endif
 
+#define MAX_SERMATRIX_STRLEN (2048*2048)
 #define MAX_STARTPOINT_QUEUE_SIZE 5000
 #define MAX_COUNT_STACK_SIZE 10000
 #define MAX_QPATH_LEN 100
@@ -37,7 +38,7 @@ typedef enum
 
 typedef enum
 {
-    EMPTY_CHAR = L'-', VISITED_CHAR = L'O', BLOCKED_CHAR = L'X'
+    EMPTY_CHAR = L'-', VISITED_CHAR = L'O', BLOCKED_CHAR = L'X', SUBOPTIMAL_CHAR = L's', OPTIMAL_CHAR = L'%'
 } FieldTypeChar;
 
 typedef enum

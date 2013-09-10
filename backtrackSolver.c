@@ -1,6 +1,6 @@
 #include "backtrackSolver.h"
-
-wchar_t debugStr[1000];
+//#define DEBUG_OUT_MOVES
+wchar_t debugStr[1024];
 
 bool solveFromPoint(SolvingState* state, uint x, uint y)
 {
@@ -57,28 +57,28 @@ bool solveFromPoint(SolvingState* state, uint x, uint y)
         if (!moved)
             continue;
 
-
-         switch (dir)
-         {
-         case RIGHT:
-         debug(L"RIGHT");
-         break;
-         case DOWN:
-         debug(L"DOWN");
-         break;
-         case LEFT:
-         debug(L"LEFT");
-         break;
-         case UP:
-         debug(L"UP");
-         break;
-         default:
-         break;
-         }
-         debugStr[0] = L'\n';
-         sprintMatrix(debugStr + 1, m);
-         debug(debugStr);
-
+#ifdef DEBUG_OUT_MOVES
+        switch (dir)
+        {
+            case RIGHT:
+                debug(L"RIGHT");
+                break;
+            case DOWN:
+                debug(L"DOWN");
+                break;
+            case LEFT:
+                debug(L"LEFT");
+                break;
+            case UP:
+                debug(L"UP");
+                break;
+            default:
+                break;
+        }
+        debugStr[0] = L'\n';
+        sprintMatrix(debugStr + 1, m);
+        debug(debugStr);
+#endif
 
         switch (dir)
         {
@@ -98,13 +98,16 @@ bool solveFromPoint(SolvingState* state, uint x, uint y)
                 break;
         }
 
+#ifdef DEBUG_OUT_MOVES
         debug(L"dead ends: %u", m->deadEndCount);
+#endif
+
         if (isSolved(m))
         {
             state->path[state->moveI] = L'\0';
             solved = true;
         }
-        else if (!isHalfed(m)) //(m->deadEndCount <= 2)
+        else if (m->deadEndCount <= 2 && !isHalfed(m))
         {
             /* still solvable */
             if (solveFromPoint(state, tx, ty))
@@ -134,28 +137,28 @@ bool solveFromPoint(SolvingState* state, uint x, uint y)
                 break;
         }
 
-
-         switch (dir)
-         {
-         case RIGHT:
-         debug(L"BACK LEFT");
-         break;
-         case DOWN:
-         debug(L"BACK UP");
-         break;
-         case LEFT:
-         debug(L"BACK RIGHT");
-         break;
-         case UP:
-         debug(L"BACK DOWN");
-         break;
-         default:
-         break;
-         }
-         debugStr[0] = L'\n';
-         sprintMatrix(debugStr + 1, m);
-         debug(debugStr);
-
+#ifdef DEBUG_OUT_MOVES
+        switch (dir)
+        {
+            case RIGHT:
+                debug(L"BACK LEFT");
+                break;
+            case DOWN:
+                debug(L"BACK UP");
+                break;
+            case LEFT:
+                debug(L"BACK RIGHT");
+                break;
+            case UP:
+                debug(L"BACK DOWN");
+                break;
+            default:
+                break;
+        }
+        debugStr[0] = L'\n';
+        sprintMatrix(debugStr + 1, m);
+        debug(debugStr);
+#endif
 
         if (solved)
         {
