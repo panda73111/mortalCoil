@@ -1,8 +1,9 @@
 #include "backtrackSolver.h"
-//#define DEBUG_OUT_MOVES
-wchar_t debugStr[1024];
+/* #define DEBUG_OUT_MOVES */
+wchar_t* debugStr;
 
-bool solveFromPoint(SolvingState* state, uint x, uint y)
+bool
+solveFromPoint(SolvingState* state, uint x, uint y)
 {
     FieldMatrix* m = state->matrix;
     uint tx = x, ty = y;
@@ -18,40 +19,40 @@ bool solveFromPoint(SolvingState* state, uint x, uint y)
         moved = false;
         switch (dir)
         {
-            case RIGHT:
-                while (tx + 1 < w && f[tx + 1][y] == EMPTY)
-                {
-                    moved = true;
-                    tx++;
-                    set(tx, y, VISITED, m);
-                }
-                break;
-            case DOWN:
-                while (ty + 1 < h && f[x][ty + 1] == EMPTY)
-                {
-                    moved = true;
-                    ty++;
-                    set(x, ty, VISITED, m);
-                }
-                break;
-            case LEFT:
-                while (tx > 0 && f[tx - 1][y] == EMPTY)
-                {
-                    moved = true;
-                    tx--;
-                    set(tx, y, VISITED, m);
-                }
-                break;
-            case UP:
-                while (ty > 0 && f[x][ty - 1] == EMPTY)
-                {
-                    moved = true;
-                    ty--;
-                    set(x, ty, VISITED, m);
-                }
-                break;
-            default:
-                break;
+        case RIGHT:
+            while (tx + 1 < w && f[tx + 1][y] == EMPTY)
+            {
+                moved = true;
+                tx++;
+                set(tx, y, VISITED, m);
+            }
+            break;
+        case DOWN:
+            while (ty + 1 < h && f[x][ty + 1] == EMPTY)
+            {
+                moved = true;
+                ty++;
+                set(x, ty, VISITED, m);
+            }
+            break;
+        case LEFT:
+            while (tx > 0 && f[tx - 1][y] == EMPTY)
+            {
+                moved = true;
+                tx--;
+                set(tx, y, VISITED, m);
+            }
+            break;
+        case UP:
+            while (ty > 0 && f[x][ty - 1] == EMPTY)
+            {
+                moved = true;
+                ty--;
+                set(x, ty, VISITED, m);
+            }
+            break;
+        default:
+            break;
         }
 
         if (!moved)
@@ -61,19 +62,19 @@ bool solveFromPoint(SolvingState* state, uint x, uint y)
         switch (dir)
         {
             case RIGHT:
-                debug(L"RIGHT");
-                break;
+            debug(L"RIGHT");
+            break;
             case DOWN:
-                debug(L"DOWN");
-                break;
+            debug(L"DOWN");
+            break;
             case LEFT:
-                debug(L"LEFT");
-                break;
+            debug(L"LEFT");
+            break;
             case UP:
-                debug(L"UP");
-                break;
+            debug(L"UP");
+            break;
             default:
-                break;
+            break;
         }
         debugStr[0] = L'\n';
         sprintMatrix(debugStr + 1, m);
@@ -82,20 +83,20 @@ bool solveFromPoint(SolvingState* state, uint x, uint y)
 
         switch (dir)
         {
-            case RIGHT:
-                state->path[state->moveI++] = 'R';
-                break;
-            case DOWN:
-                state->path[state->moveI++] = 'D';
-                break;
-            case LEFT:
-                state->path[state->moveI++] = 'L';
-                break;
-            case UP:
-                state->path[state->moveI++] = 'U';
-                break;
-            default:
-                break;
+        case RIGHT:
+            state->path[state->moveI++] = 'R';
+            break;
+        case DOWN:
+            state->path[state->moveI++] = 'D';
+            break;
+        case LEFT:
+            state->path[state->moveI++] = 'L';
+            break;
+        case UP:
+            state->path[state->moveI++] = 'U';
+            break;
+        default:
+            break;
         }
 
 #ifdef DEBUG_OUT_MOVES
@@ -104,7 +105,7 @@ bool solveFromPoint(SolvingState* state, uint x, uint y)
 
         if (isSolved(m))
         {
-            state->path[state->moveI] = L'\0';
+            state->path[state->moveI] = '\0';
             solved = true;
         }
         else if (m->deadEndCount <= 2 && !isHalfed(m))
@@ -117,43 +118,43 @@ bool solveFromPoint(SolvingState* state, uint x, uint y)
         /* revert the steps */
         switch (dir)
         {
-            case RIGHT:
-                for (; tx > x; tx--)
-                    set(tx, y, EMPTY, m);
-                break;
-            case DOWN:
-                for (; ty > y; ty--)
-                    set(x, ty, EMPTY, m);
-                break;
-            case LEFT:
-                for (; tx < x; tx++)
-                    set(tx, y, EMPTY, m);
-                break;
-            case UP:
-                for (; ty < y; ty++)
-                    set(x, ty, EMPTY, m);
-                break;
-            default:
-                break;
+        case RIGHT:
+            for (; tx > x; tx--)
+                set(tx, y, EMPTY, m);
+            break;
+        case DOWN:
+            for (; ty > y; ty--)
+                set(x, ty, EMPTY, m);
+            break;
+        case LEFT:
+            for (; tx < x; tx++)
+                set(tx, y, EMPTY, m);
+            break;
+        case UP:
+            for (; ty < y; ty++)
+                set(x, ty, EMPTY, m);
+            break;
+        default:
+            break;
         }
 
 #ifdef DEBUG_OUT_MOVES
         switch (dir)
         {
             case RIGHT:
-                debug(L"BACK LEFT");
-                break;
+            debug(L"BACK LEFT");
+            break;
             case DOWN:
-                debug(L"BACK UP");
-                break;
+            debug(L"BACK UP");
+            break;
             case LEFT:
-                debug(L"BACK RIGHT");
-                break;
+            debug(L"BACK RIGHT");
+            break;
             case UP:
-                debug(L"BACK DOWN");
-                break;
+            debug(L"BACK DOWN");
+            break;
             default:
-                break;
+            break;
         }
         debugStr[0] = L'\n';
         sprintMatrix(debugStr + 1, m);
@@ -172,9 +173,17 @@ bool solveFromPoint(SolvingState* state, uint x, uint y)
     return false;
 }
 
-bool solveByBacktracking(SolvingState* state)
+bool
+solveByBacktracking(SolvingState* state)
 {
     Point sp;
+
+    if (debugStr == NULL )
+    {
+        debugStr = (wchar_t*)malloc(1024);
+        if (debugStr == NULL )
+            fatalError(L"malloc() of debugStr failed!");
+    }
 
     state->finished = false;
     state->moveI = 0;

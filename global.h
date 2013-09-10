@@ -38,8 +38,21 @@ typedef enum
 
 typedef enum
 {
-    EMPTY_CHAR = L'-', VISITED_CHAR = L'O', BLOCKED_CHAR = L'X', SUBOPTIMAL_CHAR = L's', OPTIMAL_CHAR = L'%'
+    EMPTY_CHAR = '-',
+    VISITED_CHAR = 'O',
+    BLOCKED_CHAR = 'X',
+    SUBOPTIMAL_CHAR = 's',
+    OPTIMAL_CHAR = '%'
 } FieldTypeChar;
+
+typedef enum
+{
+    EMPTY_WCHAR = L'-',
+    VISITED_WCHAR = L'O',
+    BLOCKED_WCHAR = L'X',
+    SUBOPTIMAL_WCHAR = L's',
+    OPTIMAL_WCHAR = L'%'
+} FieldTypeWChar;
 
 typedef enum
 {
@@ -64,7 +77,7 @@ typedef enum
 
 typedef struct
 {
-    wchar_t* serMatrixStr;
+    char* serMatrixStr;
     uint width;
     uint height;
 } SerMatrix;
@@ -89,7 +102,7 @@ typedef struct
 typedef struct
 {
     Point startPoint;
-    wchar_t qpath[MAX_QPATH_LEN + 1];
+    char qpath[MAX_QPATH_LEN + 1];
 } Solution;
 
 typedef struct
@@ -97,16 +110,16 @@ typedef struct
     uint threadId;
     FieldMatrix* matrix;
     Point startPoint;
-    wchar_t path[MAX_QPATH_LEN + 1];
+    char path[MAX_QPATH_LEN + 1];
     uint moveI;
     bool finished;
 } SolvingState;
 
 typedef struct
 {
-        uint x;
-        uint y;
-        Directions dirs;
+    uint x;
+    uint y;
+    Directions dirs;
 } DirectedPoint;
 
 void
@@ -121,7 +134,8 @@ void**
 alloc2dArray(uint w, uint h, size_t typeSize);
 void
 copy2dArray(void** target, void** source, uint w, uint h, size_t typeSize);
-void clear2dArray(void** target, uint w, uint h, size_t typeSize);
+void
+clear2dArray(void** target, uint w, uint h, size_t typeSize);
 
 #endif
 

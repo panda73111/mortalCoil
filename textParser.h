@@ -3,7 +3,7 @@
 
 #include "global.h"
 
-void parseFlashVarStr(wchar_t* flashVarStr, SerMatrix* sm);
+void parseFlashVarStr(char* flashVarStr, SerMatrix* sm);
 
 #endif
 
