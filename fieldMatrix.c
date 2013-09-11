@@ -873,7 +873,7 @@ countInitConnections(uint x, uint y, FieldMatrix* matrix)
 void
 optimizeInitConnections(FieldMatrix* matrix)
 {
-    debugStr[0] = L'\n';
+    //debugStr[0] = L'\n';
     //wsprintMatrix(debugStr + 1, matrix);
     //wsprintSuboptimalFields(debugStr + 1, matrix);
     //debug(debugStr);

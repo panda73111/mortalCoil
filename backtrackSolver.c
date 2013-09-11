@@ -1,5 +1,5 @@
 #include "backtrackSolver.h"
-/* #define DEBUG_OUT_MOVES */
+#define DEBUG_OUT_MOVES
 wchar_t* debugStr;
 
 bool
@@ -77,7 +77,7 @@ solveFromPoint(SolvingState* state, uint x, uint y)
             break;
         }
         debugStr[0] = L'\n';
-        sprintMatrix(debugStr + 1, m);
+        wsprintMatrix(debugStr + 1, m);
         debug(debugStr);
 #endif
 
@@ -157,7 +157,7 @@ solveFromPoint(SolvingState* state, uint x, uint y)
             break;
         }
         debugStr[0] = L'\n';
-        sprintMatrix(debugStr + 1, m);
+        wsprintMatrix(debugStr + 1, m);
         debug(debugStr);
 #endif
 
