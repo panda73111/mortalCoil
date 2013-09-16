@@ -1,4 +1,3 @@
-
 #ifndef H_COUNTSTACK
 #define H_COUNTSTACK
 

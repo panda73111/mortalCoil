@@ -1,896 +1,909 @@
 #include "fieldMatrix.h"
+/* #define DEBUG_OUT_DEAD_ENDS */
 
 wchar_t* debugStr;
 
-void
-set(uint x, uint y, FieldType value, FieldMatrix* matrix)
+void set(uint x, uint y, FieldType value, FieldMatrix* matrix)
 {
-    if (matrix->fields[x][y] == value)
-        debug(L"double set: {%u|%u}", x, y);
+	if (matrix->fields[x][y] == value)
+		debug(L"double set: {%u|%u}", x, y);
 
-    matrix->fields[x][y] = value;
-    setConnections(x, y, matrix);
+	matrix->fields[x][y] = value;
 
-    /* assuming that only changes are set! */
-    if (value == EMPTY)
-    {
-        matrix->freeFieldCount++;
-    }
-    else
-    {
-        matrix->freeFieldCount--;
-    }
+	/* assuming that only changes are set! */
+	if (value == EMPTY)
+	{
+		setNewConnections(x, y, matrix);
+		matrix->freeFieldCount++;
+	}
+	else
+	{
+		unsetOldConnections(x, y, matrix);
+		matrix->freeFieldCount--;
+	}
 
-    checkDeadEnd(x, y, matrix);
+	checkDeadEnd(x, y, matrix);
 
-    /* range 2, diagonally
-     if (x + 2 < matrix->width && y + 2 < matrix->height)
-     checkDeadEnd(x + 2, y + 2, matrix);
-     if (x > 1 && y + 2 < matrix->height)
-     checkDeadEnd(x - 2, y + 2, matrix);
-     if (x > 1 && y > 1)
-     checkDeadEnd(x - 2, y - 2, matrix);
-     if (x + 2 < matrix->width && y > 1)
-     checkDeadEnd(x + 2, y - 2, matrix);
-     */
+	/*
+	 * check up to 2 neighbor fields horizontally and vertically
+	 * and 1 neighbor field diagonally
+	 */
 
-    if (x + 2 < matrix->width)
-        checkDeadEnd(x + 2, y, matrix);
-    if (y + 2 < matrix->height)
-        checkDeadEnd(x, y + 2, matrix);
-    if (x > 1)
-        checkDeadEnd(x - 2, y, matrix);
-    if (y > 1)
-        checkDeadEnd(x, y - 2, matrix);
+	if (x + 2 < matrix->width)
+	{
+		checkDeadEnd(x + 2, y, matrix);
+		checkDeadEnd(x + 1, y, matrix);
+	}
+	else if (x + 1 < matrix->width)
+	{
+		checkDeadEnd(x + 1, y, matrix);
+	}
 
-    if (x + 1 < matrix->width && y + 1 < matrix->height)
-        checkDeadEnd(x + 1, y + 1, matrix);
-    if (x > 0 && y + 1 < matrix->height)
-        checkDeadEnd(x - 1, y + 1, matrix);
-    if (x > 0 && y > 0)
-        checkDeadEnd(x - 1, y - 1, matrix);
-    if (x + 1 < matrix->width && y > 0)
-        checkDeadEnd(x + 1, y - 1, matrix);
+	if (y + 2 < matrix->height)
+	{
+		checkDeadEnd(x, y + 2, matrix);
+		checkDeadEnd(x, y + 1, matrix);
+	}
+	else if (y + 1 < matrix->height)
+	{
+		checkDeadEnd(x, y + 1, matrix);
+	}
 
-    if (x + 1 < matrix->width)
-        checkDeadEnd(x + 1, y, matrix);
-    if (y + 1 < matrix->height)
-        checkDeadEnd(x, y + 1, matrix);
-    if (x > 0)
-        checkDeadEnd(x - 1, y, matrix);
-    if (y > 0)
-        checkDeadEnd(x, y - 1, matrix);
+	if (x > 1)
+	{
+		checkDeadEnd(x - 2, y, matrix);
+		checkDeadEnd(x - 1, y, matrix);
+	}
+	else if (x > 0)
+	{
+		checkDeadEnd(x - 1, y, matrix);
+	}
 
+	if (y > 1)
+	{
+		checkDeadEnd(x, y - 2, matrix);
+		checkDeadEnd(x, y - 1, matrix);
+	}
+	else if (y > 0)
+	{
+		checkDeadEnd(x, y - 1, matrix);
+	}
+
+	if (x + 1 < matrix->width && y + 1 < matrix->height)
+		checkDeadEnd(x + 1, y + 1, matrix);
+	if (x > 0 && y + 1 < matrix->height)
+		checkDeadEnd(x - 1, y + 1, matrix);
+	if (x > 0 && y > 0)
+		checkDeadEnd(x - 1, y - 1, matrix);
+	if (x + 1 < matrix->width && y > 0)
+		checkDeadEnd(x + 1, y - 1, matrix);
 }
 
-void
-allocMatrix(FieldMatrix* matrix)
+void allocMatrix(FieldMatrix* matrix)
 {
-    uint w = matrix->width;
-    uint h = matrix->height;
+	uint w = matrix->width;
+	uint h = matrix->height;
 
-    if (debugStr == NULL)
-    {
-        debugStr = (wchar_t*)malloc(1024);
-        if (debugStr == NULL)
-            fatalError(L"malloc() of debugStr failed!");
-    }
+	if (debugStr == NULL)
+	{
+		debugStr = (wchar_t*) malloc(1024);
+		if (debugStr == NULL)
+			fatalError(L"malloc() of debugStr failed!");
+	}
 
-    matrix->fields = (FieldType**) alloc2dArray(w, h, sizeof(FieldType));
-    matrix->initConnections = (bool**) alloc2dArray(2 * w - 1, h, sizeof(bool));
-    matrix->connections = (bool**) alloc2dArray(2 * w - 1, h, sizeof(bool));
-    matrix->initDeadEnds = (bool**) alloc2dArray(w, h, sizeof(bool));
-    matrix->deadEnds = (bool**) alloc2dArray(w, h, sizeof(bool));
-    matrix->countedFields = (bool**) alloc2dArray(w, h, sizeof(bool));
+	matrix->fields = (FieldType**) alloc2dArray(w, h, sizeof(FieldType));
+	matrix->initConnections = (bool**) alloc2dArray(2 * w - 1, h, sizeof(bool));
+	matrix->connections = (bool**) alloc2dArray(2 * w - 1, h, sizeof(bool));
+	matrix->initDeadEnds = (bool**) alloc2dArray(w, h, sizeof(bool));
+	matrix->deadEnds = (bool**) alloc2dArray(w, h, sizeof(bool));
+	matrix->countedFields = (bool**) alloc2dArray(w, h, sizeof(bool));
 }
 
-void
-freeFieldMatrix(FieldMatrix* matrix)
+void freeFieldMatrix(FieldMatrix* matrix)
 {
-    free(matrix->fields);
-    free(matrix->initConnections);
-    free(matrix->connections);
-    free(matrix->initDeadEnds);
-    free(matrix->deadEnds);
-    free(matrix->countedFields);
-    matrix->fields = NULL;
-    matrix->initConnections = NULL;
-    matrix->connections = NULL;
-    matrix->initDeadEnds = NULL;
-    matrix->deadEnds = NULL;
-    matrix->countedFields = NULL;
+	free(matrix->fields);
+	free(matrix->initConnections);
+	free(matrix->connections);
+	free(matrix->initDeadEnds);
+	free(matrix->deadEnds);
+	free(matrix->countedFields);
+	matrix->fields = NULL;
+	matrix->initConnections = NULL;
+	matrix->connections = NULL;
+	matrix->initDeadEnds = NULL;
+	matrix->deadEnds = NULL;
+	matrix->countedFields = NULL;
 }
 
-void
-freeSerMatrix(SerMatrix* matrix)
+void freeSerMatrix(SerMatrix* matrix)
 {
-    free(matrix->serMatrixStr);
+	free(matrix->serMatrixStr);
 }
 
-void
-parseMatrix(SerMatrix* source, FieldMatrix* target)
+void parseMatrix(SerMatrix* source, FieldMatrix* target)
 {
-    uint w = source->width;
-    uint h = source->height;
-    uint x, y, i = 0;
-    uint freeFieldCount = 0;
-    bool firstFreeSet = false;
-    double suboptPerc, prevSuboptPerc;
+	uint w = source->width;
+	uint h = source->height;
+	uint x, y, i = 0;
+	uint freeFieldCount = 0;
+	bool firstFreeSet = false;
+	double suboptPerc, prevSuboptPerc;
 
-    target->width = w;
-    target->height = h;
-    target->size = w * h;
-    target->fields = NULL;
+	target->width = w;
+	target->height = h;
+	target->size = w * h;
+	target->fields = NULL;
 
-    allocMatrix(target);
+	allocMatrix(target);
 
-    for (y = 0; y < h; y++)
-        for (x = 0; x < w; x++)
-        {
-            if (source->serMatrixStr[i] == 'X')
-            {
-                target->fields[x][y] = BLOCKED;
-            }
-            else
-            {
-                target->fields[x][y] = EMPTY;
-                if (!firstFreeSet)
-                {
-                    target->firstFreeField.x = x;
-                    target->firstFreeField.y = y;
-                    firstFreeSet = true;
-                }
-                freeFieldCount++;
-            }
-            i++;
-        }
-    target->initFreeFieldCount = freeFieldCount;
-    target->freeFieldCount = freeFieldCount;
+	for (y = 0; y < h; y++)
+		for (x = 0; x < w; x++)
+		{
+			if (source->serMatrixStr[i] == 'X')
+			{
+				target->fields[x][y] = BLOCKED;
+			}
+			else
+			{
+				target->fields[x][y] = EMPTY;
+				if (!firstFreeSet)
+				{
+					target->firstFreeField.x = x;
+					target->firstFreeField.y = y;
+					firstFreeSet = true;
+				}
+				freeFieldCount++;
+			}
+			i++;
+		}
+	target->initFreeFieldCount = freeFieldCount;
+	target->freeFieldCount = freeFieldCount;
 
-    setInitConnections(target);
-    suboptPerc = getSuboptimalFieldPercentage(target);
-    debug(L"Percentage of not optimal fields: %0.02f", suboptPerc * 100.0);
-    do
-    {
-        optimizeInitConnections(target);
-        prevSuboptPerc = suboptPerc;
-        suboptPerc = getSuboptimalFieldPercentage(target);
-    }
-    while (prevSuboptPerc != suboptPerc);
-    debug(L"After optimization: %0.02f", suboptPerc * 100.0);
-    copy2dArray((void**) target->connections, (void**) target->initConnections, 2 * w - 1, h,
-            sizeof(bool));
+	set2dArray((void**) target->initConnections, (int) false, 2 * w - 1, h,
+			sizeof(bool));
+	set2dArray((void**) target->connections, (int) false, 2 * w - 1, h,
+			sizeof(bool));
 
-    checkInitDeadEnds(target);
-    copy2dArray((void**) target->deadEnds, (void**) target->initDeadEnds, w, h, sizeof(bool));
+	setInitConnections(target);
+	suboptPerc = getSuboptimalFieldPercentage(target);
+	debug(L"Percentage of not optimal fields: %0.02f", suboptPerc * 100.0);
+	do
+	{
+		optimizeInitConnections(target);
+		prevSuboptPerc = suboptPerc;
+		suboptPerc = getSuboptimalFieldPercentage(target);
+	}
+	while (prevSuboptPerc != suboptPerc);
+	debug(L"After optimization: %0.02f", suboptPerc * 100.0);
+	copy2dArray((void**) target->connections, (void**) target->initConnections,
+			2 * w - 1, h, sizeof(bool));
+
+	set2dArray((void**) target->initDeadEnds, (int) false, w, h, sizeof(bool));
+	set2dArray((void**) target->deadEnds, (int) false, w, h, sizeof(bool));
+
+	checkInitDeadEnds(target);
+	copy2dArray((void**) target->deadEnds, (void**) target->initDeadEnds, w, h,
+			sizeof(bool));
 }
 
-void
-wsprintMatrix(wchar_t* str, FieldMatrix* matrix)
+void wsprintMatrix(wchar_t* str, FieldMatrix* matrix)
 {
-    int x, y, i = 0;
-    for (y = 0; y < matrix->height; y++)
-    {
-        for (x = 0; x < matrix->width; x++)
-        {
-            switch (matrix->fields[x][y])
-            {
-            case EMPTY:
-                str[i++] = EMPTY_WCHAR;
-                break;
-            case VISITED:
-                str[i++] = VISITED_WCHAR;
-                break;
-            case BLOCKED:
-                str[i++] = BLOCKED_WCHAR;
-                break;
-            }
-        }
-        if (y != matrix->height - 1)
-            str[i++] = L'\n';
-    }
-    str[i] = L'\0';
+	int x, y, i = 0;
+	for (y = 0; y < matrix->height; y++)
+	{
+		for (x = 0; x < matrix->width; x++)
+		{
+			switch (matrix->fields[x][y])
+			{
+				case EMPTY:
+					str[i++] = EMPTY_WCHAR;
+					break;
+				case VISITED:
+					str[i++] = VISITED_WCHAR;
+					break;
+				case BLOCKED:
+					str[i++] = BLOCKED_WCHAR;
+					break;
+			}
+		}
+		if (y != matrix->height - 1)
+			str[i++] = L'\n';
+	}
+	str[i] = L'\0';
 }
 
-void
-setInitConnections(FieldMatrix* matrix)
+void setInitConnections(FieldMatrix* matrix)
 {
-    int x, y;
-    for (y = 0; y < matrix->height; y++)
-        for (x = 0; x < matrix->width; x++)
-        {
-            if (matrix->fields[x][y] != EMPTY)
-                continue;
+	int x, y;
+	for (y = 0; y < matrix->height; y++)
+		for (x = 0; x < matrix->width; x++)
+		{
+			if (matrix->fields[x][y] != EMPTY)
+				continue;
 
-            /* to the right? */
-            if (x + 1 < matrix->width && matrix->fields[x + 1][y] == EMPTY)
-                matrix->initConnections[2 * x + 1][y] = true;
-            /* to the bottom? */
-            if (y + 1 < matrix->height && matrix->fields[x][y + 1] == EMPTY)
-                matrix->initConnections[2 * x][y] = true;
-        }
+			/* to the right? */
+			if (x + 1 < matrix->width && matrix->fields[x + 1][y] == EMPTY)
+				matrix->initConnections[2 * x + 1][y] = true;
+			/* to the bottom? */
+			if (y + 1 < matrix->height && matrix->fields[x][y + 1] == EMPTY)
+				matrix->initConnections[2 * x][y] = true;
+		}
 }
 
-void
-checkInitDeadEnds(FieldMatrix* matrix)
+void checkInitDeadEnds(FieldMatrix* matrix)
 {
-    uint deadEndCount = 0;
-    int x, y;
-    for (y = 0; y < matrix->height; y++)
-        for (x = 0; x < matrix->width; x++)
-        {
-            if (isSingleDirection(getConnections(x, y, matrix)))
-            {
-                matrix->initDeadEnds[x][y] = true;
-                deadEndCount++;
-            }
-        }
-    matrix->deadEndCount = deadEndCount;
+	uint deadEndCount = 0;
+	int x, y;
+	for (y = 0; y < matrix->height; y++)
+		for (x = 0; x < matrix->width; x++)
+		{
+			if (isSingleDirection(getConnections(x, y, matrix)))
+			{
+				matrix->initDeadEnds[x][y] = true;
+				deadEndCount++;
+			}
+		}
+	matrix->deadEndCount = deadEndCount;
 }
 
-Directions
-getConnections(uint x, uint y, FieldMatrix* matrix)
+Directions getConnections(uint x, uint y, FieldMatrix* matrix)
 {
-    byte ret = NONE;
-    /* to the right? */
-    if (x + 1 < matrix->width && matrix->connections[2 * x + 1][y])
-        ret |= RIGHT;
-    /* to the bottom? */
-    if (y + 1 < matrix->height && matrix->connections[2 * x][y])
-        ret |= DOWN;
-    /* to the left? */
-    if (x > 0 && matrix->connections[2 * x - 1][y])
-        ret |= LEFT;
-    /* to the top? */
-    if (y > 0 && matrix->connections[2 * x][y - 1])
-        ret |= UP;
-    return ret;
+	byte ret = NONE;
+	/* to the right? */
+	if (x + 1 < matrix->width && matrix->connections[2 * x + 1][y])
+		ret |= RIGHT;
+	/* to the bottom? */
+	if (y + 1 < matrix->height && matrix->connections[2 * x][y])
+		ret |= DOWN;
+	/* to the left? */
+	if (x > 0 && matrix->connections[2 * x - 1][y])
+		ret |= LEFT;
+	/* to the top? */
+	if (y > 0 && matrix->connections[2 * x][y - 1])
+		ret |= UP;
+	return ret;
 }
 
-void
-setConnections(uint x, uint y, FieldMatrix* matrix)
+void setNewConnections(uint x, uint y, FieldMatrix* matrix)
 {
-    if (matrix->fields[x][y] == EMPTY)
-    {
-        /* set new connections */
-
-        /* right? */
-        if (x + 1 < matrix->width && matrix->initConnections[x + 1][y]
-                && matrix->fields[x + 1][y] == EMPTY)
-            matrix->connections[2 * x + 1][y] = true;
-        /* down? */
-        if (y + 1 < matrix->height && matrix->initConnections[x][y + 1]
-                && matrix->fields[x][y + 1] == EMPTY)
-            matrix->connections[2 * x][y] = true;
-        /* left? */
-        if (x > 0 && matrix->initConnections[x - 1][y] && matrix->fields[x - 1][y] == EMPTY)
-            matrix->connections[2 * x - 1][y] = true;
-        /* up? */
-        if (y > 0 && matrix->initConnections[x][y - 1] && matrix->fields[x][y - 1] == EMPTY)
-            matrix->connections[2 * x][y - 1] = true;
-    }
-    else
-    {
-        /* unset old connections */
-
-        /* right */
-        if (x + 1 < matrix->width)
-            matrix->connections[2 * x + 1][y] = false;
-        /* down */
-        if (y + 1 < matrix->height)
-            matrix->connections[2 * x][y] = false;
-        /* left */
-        if (x > 0)
-            matrix->connections[2 * x - 1][y] = false;
-        /* up */
-        if (y > 0)
-            matrix->connections[2 * x][y - 1] = false;
-    }
+	/* right? */
+	if (x + 1 < matrix->width && matrix->initConnections[2 * x + 1][y]
+			&& matrix->fields[x + 1][y] == EMPTY)
+		matrix->connections[2 * x + 1][y] = true;
+	/* down? */
+	if (y + 1 < matrix->height && matrix->initConnections[2 * x][y]
+			&& matrix->fields[x][y + 1] == EMPTY)
+		matrix->connections[2 * x][y] = true;
+	/* left? */
+	if (x > 0 && matrix->initConnections[2 * x - 1][y]
+			&& matrix->fields[x - 1][y] == EMPTY)
+		matrix->connections[2 * x - 1][y] = true;
+	/* up? */
+	if (y > 0 && matrix->initConnections[2 * x][y - 1]
+			&& matrix->fields[x][y - 1] == EMPTY)
+		matrix->connections[2 * x][y - 1] = true;
 }
 
-void
-printConnections(uint x, uint y, FieldMatrix* matrix)
+void unsetOldConnections(uint x, uint y, FieldMatrix* matrix)
 {
-    int i = 6;
-    Directions dirs = getConnections(x, y, matrix);
-
-    if (dirs == NONE)
-    {
-        wprintf(L"{%d|%d} none\n", x, y);
-    }
-    else
-    {
-        wchar_t ret[31];
-        swprintf(ret, 13, L"{%u|%u} ", x, y);
-
-        if (x >= 1000)
-            i += 3;
-        else if (x >= 100)
-            i += 2;
-        else if (x >= 10)
-            i += 1;
-
-        if (y >= 1000)
-            i += 3;
-        else if (y >= 100)
-            i += 2;
-        else if (y >= 10)
-            i += 1;
-
-        if ((dirs & RIGHT) != 0)
-        {
-            swprintf(ret + i, 7, L"right ");
-            i += 6;
-        }
-        if ((dirs & DOWN) != 0)
-        {
-            swprintf(ret + i, 6, L"down ");
-            i += 5;
-        }
-        if ((dirs & LEFT) != 0)
-        {
-            swprintf(ret + i, 6, L"left ");
-            i += 5;
-        }
-        if ((dirs & UP) != 0)
-        {
-            swprintf(ret + i, 3, L"up");
-        }
-        wprintf(L"%ls\n", ret);
-    }
+	/* right */
+	if (x + 1 < matrix->width)
+		matrix->connections[2 * x + 1][y] = false;
+	/* down */
+	if (y + 1 < matrix->height)
+		matrix->connections[2 * x][y] = false;
+	/* left */
+	if (x > 0)
+		matrix->connections[2 * x - 1][y] = false;
+	/* up */
+	if (y > 0)
+		matrix->connections[2 * x][y - 1] = false;
 }
 
-void
-checkDeadEnd(uint x, uint y, FieldMatrix* matrix)
+void printConnections(uint x, uint y, FieldMatrix* matrix)
 {
-    if (isSingleDirection(getConnections(x, y, matrix)))
-    {
-        if (!matrix->deadEnds[x][y])
-        {
-            matrix->deadEnds[x][y] = true;
-            matrix->deadEndCount++;
-        }
-    }
-    else if (matrix->deadEnds[x][y])
-    {
-        matrix->deadEnds[x][y] = false;
-        matrix->deadEndCount--;
-    }
+	int i = 6;
+	Directions dirs = getConnections(x, y, matrix);
+
+	if (dirs == NONE)
+	{
+		wprintf(L"{%d|%d} none\n", x, y);
+	}
+	else
+	{
+		wchar_t ret[31];
+		swprintf(ret, 13, L"{%u|%u} ", x, y);
+
+		if (x >= 1000)
+			i += 3;
+		else if (x >= 100)
+			i += 2;
+		else if (x >= 10)
+			i += 1;
+
+		if (y >= 1000)
+			i += 3;
+		else if (y >= 100)
+			i += 2;
+		else if (y >= 10)
+			i += 1;
+
+		if ((dirs & RIGHT) != 0)
+		{
+			swprintf(ret + i, 7, L"right ");
+			i += 6;
+		}
+		if ((dirs & DOWN) != 0)
+		{
+			swprintf(ret + i, 6, L"down ");
+			i += 5;
+		}
+		if ((dirs & LEFT) != 0)
+		{
+			swprintf(ret + i, 6, L"left ");
+			i += 5;
+		}
+		if ((dirs & UP) != 0)
+		{
+			swprintf(ret + i, 3, L"up");
+		}
+		wprintf(L"%ls\n", ret);
+	}
 }
 
-bool
-isSingleDirection(Directions dir)
+void checkDeadEnd(uint x, uint y, FieldMatrix* matrix)
 {
-    return (dir & 0x0F) != NONE && (dir & (dir - 1)) == 0;
+	if (isSingleDirection(getConnections(x, y, matrix)))
+	{
+		if (!matrix->deadEnds[x][y])
+		{
+#ifdef DEBUG_OUT_DEAD_ENDS
+			debug(L"%d|%d is new dead end", x, y);
+#endif
+			matrix->deadEnds[x][y] = true;
+			matrix->deadEndCount++;
+		}
+	}
+	else if (matrix->deadEnds[x][y])
+	{
+#ifdef DEBUG_OUT_DEAD_ENDS
+		debug(L"%d|%d is no longer a dead end", x, y);
+#endif
+		matrix->deadEnds[x][y] = false;
+		matrix->deadEndCount--;
+	}
 }
 
-bool
-isValidQPath(char* qpath)
+bool isSingleDirection(Directions dir)
 {
-    int i;
-    size_t len = strlen(qpath);
-    for (i = 0; i < len; i++)
-    {
-        switch (qpath[i])
-        {
-        case 'R':
-        case 'D':
-        case 'L':
-        case 'U':
-            break;
-        default:
-            return false;
-        }
-    }
-    return true;
+	return (dir & 0x0F) != NONE && (dir & (dir - 1)) == 0;
 }
 
-bool
-isValidPath(char* path)
+bool isValidQPath(char* qpath)
 {
-    int i;
-    size_t len = strlen(path);
-    Directions prevDir = NONE;
-
-    if (len == 0)
-        return false;
-
-    for (i = 0; i < len; i++)
-    {
-        switch (path[i])
-        {
-        case 'R':
-            if (prevDir == LEFT || prevDir == RIGHT)
-                return false;
-            prevDir = RIGHT;
-            break;
-        case 'D':
-            if (prevDir == UP || prevDir == DOWN)
-                return false;
-            prevDir = DOWN;
-            break;
-        case 'L':
-            if (prevDir == RIGHT || prevDir == LEFT)
-                return false;
-            prevDir = LEFT;
-            break;
-        case 'U':
-            if (prevDir == DOWN || prevDir == UP)
-                return false;
-            prevDir = UP;
-            break;
-        default:
-            return false;
-        }
-    }
-    return true;
+	int i;
+	size_t len = strlen(qpath);
+	for (i = 0; i < len; i++)
+	{
+		switch (qpath[i])
+		{
+			case 'R':
+			case 'D':
+			case 'L':
+			case 'U':
+				break;
+			default:
+				return false;
+		}
+	}
+	return true;
 }
 
-wchar_t
-getDirectionChar(Directions from, Directions to)
+bool isValidPath(char* path)
 {
-    switch (from)
-    {
-    case RIGHT:
-        switch (to)
-        {
-        case RIGHT:
-            return L'\x2500';
-        case DOWN:
-            return L'\x2510';
-        case UP:
-            return L'\x2518';
-        default:
-            fatalError(L"Invalid 'to' direction!");
-        }
-        break;
-    case DOWN:
-        switch (to)
-        {
-        case RIGHT:
-            return L'\x2514';
-        case DOWN:
-            return L'\x2502';
-        case LEFT:
-            return L'\x2518';
-        default:
-            fatalError(L"Invalid 'to' direction!");
-        }
-        break;
-    case LEFT:
-        switch (to)
-        {
-        case DOWN:
-            return L'\x250C';
-        case LEFT:
-            return L'\x2500';
-        case UP:
-            return L'\x2514';
-        default:
-            fatalError(L"Invalid 'to' direction!");
-        }
-        break;
-    case UP:
-        switch (to)
-        {
-        case RIGHT:
-            return L'\x250C';
-        case LEFT:
-            return L'\x2510';
-        case UP:
-            return L'\x2502';
-        default:
-            fatalError(L"Invalid 'to' direction!");
-        }
-        break;
-    case NONE:
-        switch (to)
-        {
-        case RIGHT:
-            return L'\x2500';
-        case DOWN:
-            return L'\x2502';
-        case LEFT:
-            return L'\x2500';
-        case UP:
-            return L'\x2502';
-        default:
-            fatalError(L"Invalid 'to' direction!");
-        }
-        break;
-    default:
-        fatalError(L"Invalid 'from' direction!");
-    }
-    return 0; /* not gonna happen */
+	int i;
+	size_t len = strlen(path);
+	Directions prevDir = NONE;
+
+	if (len == 0)
+		return false;
+
+	for (i = 0; i < len; i++)
+	{
+		switch (path[i])
+		{
+			case 'R':
+				if (prevDir == LEFT || prevDir == RIGHT)
+					return false;
+				prevDir = RIGHT;
+				break;
+			case 'D':
+				if (prevDir == UP || prevDir == DOWN)
+					return false;
+				prevDir = DOWN;
+				break;
+			case 'L':
+				if (prevDir == RIGHT || prevDir == LEFT)
+					return false;
+				prevDir = LEFT;
+				break;
+			case 'U':
+				if (prevDir == DOWN || prevDir == UP)
+					return false;
+				prevDir = UP;
+				break;
+			default:
+				return false;
+		}
+	}
+	return true;
 }
 
-void
-wsprintQPath(wchar_t* str, FieldMatrix* matrix, Solution* s)
+wchar_t getDirectionChar(Directions from, Directions to)
 {
-    uint x, y, w, h, startX, startY;
-    int i;
-    size_t pathLen;
-    Directions dir, firstDir, prevDir;
-    bool moved;
-
-    if (!isValidQPath(s->qpath))
-        fatalError(L"Not a valid qpath!");
-
-    x = s->startPoint.x;
-    y = s->startPoint.y;
-    if (matrix->fields[x][y] != EMPTY)
-        fatalError(L"qpath starting point is not empty!");
-
-    wsprintMatrix(str, matrix);
-
-    startX = x;
-    startY = y;
-    w = matrix->width;
-    h = matrix->height;
-    pathLen = strlen(s->qpath);
-    firstDir = NONE;
-    prevDir = NONE;
-
-    for (i = 0; i < pathLen + 1; i++)
-    {
-        while (isSingleDirection(dir = getConnections(x, y, matrix)))
-        {
-            /* move in that single direction */
-            moved = false;
-            switch (dir)
-            {
-            case RIGHT:
-                while (x + 1 < w && matrix->fields[x + 1][y] == EMPTY)
-                {
-                    moved = true;
-                    set(x, y, VISITED, matrix);
-                    str[y * (w + 1) + x] = getDirectionChar(prevDir, dir);
-                    x++;
-                    prevDir = dir;
-                }
-                break;
-            case DOWN:
-                while (y + 1 < h && matrix->fields[x][y + 1] == EMPTY)
-                {
-                    moved = true;
-                    set(x, y, VISITED, matrix);
-                    str[y * (w + 1) + x] = getDirectionChar(prevDir, dir);
-                    y++;
-                    prevDir = dir;
-                }
-                break;
-            case LEFT:
-                while (x > 0 && matrix->fields[x - 1][y] == EMPTY)
-                {
-                    moved = true;
-                    set(x, y, VISITED, matrix);
-                    str[y * (w + 1) + x] = getDirectionChar(prevDir, dir);
-                    x--;
-                    prevDir = dir;
-                }
-                break;
-            case UP:
-                while (y > 0 && matrix->fields[x][y - 1] == EMPTY)
-                {
-                    moved = true;
-                    set(x, y, VISITED, matrix);
-                    str[y * (w + 1) + x] = getDirectionChar(prevDir, dir);
-                    y--;
-                    prevDir = dir;
-                }
-                break;
-            default:
-                break;
-            }
-            if (!moved)
-                fatalError(L"qpath is blocked!");
-
-            if (firstDir == NONE)
-                firstDir = dir;
-        }
-
-        if (i < pathLen)
-        {
-            moved = false;
-
-            switch (s->qpath[i])
-            {
-            case 'R':
-                dir = RIGHT;
-                while (x + 1 < w && matrix->fields[x + 1][y] == EMPTY)
-                {
-                    moved = true;
-                    set(x, y, VISITED, matrix);
-                    str[y * (w + 1) + x] = getDirectionChar(prevDir, dir);
-                    x++;
-                    prevDir = dir;
-                }
-                break;
-            case 'D':
-                dir = DOWN;
-                while (y + 1 < h && matrix->fields[x][y + 1] == EMPTY)
-                {
-                    moved = true;
-                    set(x, y, VISITED, matrix);
-                    str[y * (w + 1) + x] = getDirectionChar(prevDir, dir);
-                    y++;
-                    prevDir = dir;
-                }
-                break;
-            case 'L':
-                dir = LEFT;
-                while (x > 0 && matrix->fields[x - 1][y] == EMPTY)
-                {
-                    moved = true;
-                    set(x, y, VISITED, matrix);
-                    str[y * (w + 1) + x] = getDirectionChar(prevDir, dir);
-                    x--;
-                    prevDir = dir;
-                }
-                break;
-            case 'U':
-                dir = UP;
-                while (y > 0 && matrix->fields[x][y - 1] == EMPTY)
-                {
-                    moved = true;
-                    set(x, y, VISITED, matrix);
-                    str[y * (w + 1) + x] = getDirectionChar(prevDir, dir);
-                    y--;
-                    prevDir = dir;
-                }
-                break;
-            default:
-                break;
-            }
-            if (!moved)
-                fatalError(L"qpath is blocked!");
-
-            if (firstDir == NONE)
-                firstDir = dir;
-        }
-    }
-
-    str[y * (w + 1) + x] = L'\x25FE'; /* end point */
-
-    switch (firstDir)
-    {
-    case RIGHT:
-        str[startY * (w + 1) + startX] = L'\x25BA';
-        break;
-    case DOWN:
-        str[startY * (w + 1) + startX] = L'\x25BC';
-        break;
-    case LEFT:
-        str[startY * (w + 1) + startX] = L'\x25C0';
-        break;
-    case UP:
-        str[startY * (w + 1) + startX] = L'\x25B2';
-        break;
-    default:
-        break;
-    }
-
-    /* clean up */
-    for (y = 0; y < h; y++)
-        for (x = 0; x < w; x++)
-        {
-            if (matrix->fields[x][y] == VISITED)
-                set(x, y, EMPTY, matrix);
-        }
+	switch (from)
+	{
+		case RIGHT:
+			switch (to)
+			{
+				case RIGHT:
+					return L'\x2500';
+				case DOWN:
+					return L'\x2510';
+				case UP:
+					return L'\x2518';
+				default:
+					fatalError(L"Invalid 'to' direction!");
+			}
+			break;
+		case DOWN:
+			switch (to)
+			{
+				case RIGHT:
+					return L'\x2514';
+				case DOWN:
+					return L'\x2502';
+				case LEFT:
+					return L'\x2518';
+				default:
+					fatalError(L"Invalid 'to' direction!");
+			}
+			break;
+		case LEFT:
+			switch (to)
+			{
+				case DOWN:
+					return L'\x250C';
+				case LEFT:
+					return L'\x2500';
+				case UP:
+					return L'\x2514';
+				default:
+					fatalError(L"Invalid 'to' direction!");
+			}
+			break;
+		case UP:
+			switch (to)
+			{
+				case RIGHT:
+					return L'\x250C';
+				case LEFT:
+					return L'\x2510';
+				case UP:
+					return L'\x2502';
+				default:
+					fatalError(L"Invalid 'to' direction!");
+			}
+			break;
+		case NONE:
+			switch (to)
+			{
+				case RIGHT:
+					return L'\x2500';
+				case DOWN:
+					return L'\x2502';
+				case LEFT:
+					return L'\x2500';
+				case UP:
+					return L'\x2502';
+				default:
+					fatalError(L"Invalid 'to' direction!");
+			}
+			break;
+		default:
+			fatalError(L"Invalid 'from' direction!");
+	}
+	return 0; /* not gonna happen */
 }
 
-bool
-isSolved(FieldMatrix* matrix)
+void wsprintQPath(wchar_t* str, FieldMatrix* matrix, Solution* s)
 {
-    return matrix->freeFieldCount == 0;
+	uint x, y, w, h, startX, startY;
+	int i;
+	size_t pathLen;
+	Directions dir, firstDir, prevDir;
+	bool moved;
+
+	if (!isValidQPath(s->qpath))
+		fatalError(L"Not a valid qpath!");
+
+	x = s->startPoint.x;
+	y = s->startPoint.y;
+	if (matrix->fields[x][y] != EMPTY)
+		fatalError(L"qpath starting point is not empty!");
+
+	wsprintMatrix(str, matrix);
+
+	startX = x;
+	startY = y;
+	w = matrix->width;
+	h = matrix->height;
+	pathLen = strlen(s->qpath);
+	firstDir = NONE;
+	prevDir = NONE;
+
+	for (i = 0; i < pathLen + 1; i++)
+	{
+		while (isSingleDirection(dir = getConnections(x, y, matrix)))
+		{
+			/* move in that single direction */
+			moved = false;
+			switch (dir)
+			{
+				case RIGHT:
+					while (x + 1 < w && matrix->fields[x + 1][y] == EMPTY)
+					{
+						moved = true;
+						set(x, y, VISITED, matrix);
+						str[y * (w + 1) + x] = getDirectionChar(prevDir, dir);
+						x++;
+						prevDir = dir;
+					}
+					break;
+				case DOWN:
+					while (y + 1 < h && matrix->fields[x][y + 1] == EMPTY)
+					{
+						moved = true;
+						set(x, y, VISITED, matrix);
+						str[y * (w + 1) + x] = getDirectionChar(prevDir, dir);
+						y++;
+						prevDir = dir;
+					}
+					break;
+				case LEFT:
+					while (x > 0 && matrix->fields[x - 1][y] == EMPTY)
+					{
+						moved = true;
+						set(x, y, VISITED, matrix);
+						str[y * (w + 1) + x] = getDirectionChar(prevDir, dir);
+						x--;
+						prevDir = dir;
+					}
+					break;
+				case UP:
+					while (y > 0 && matrix->fields[x][y - 1] == EMPTY)
+					{
+						moved = true;
+						set(x, y, VISITED, matrix);
+						str[y * (w + 1) + x] = getDirectionChar(prevDir, dir);
+						y--;
+						prevDir = dir;
+					}
+					break;
+				default:
+					break;
+			}
+			if (!moved)
+				fatalError(L"qpath is blocked!");
+
+			if (firstDir == NONE)
+				firstDir = dir;
+		}
+
+		if (i < pathLen)
+		{
+			moved = false;
+
+			switch (s->qpath[i])
+			{
+				case 'R':
+					dir = RIGHT;
+					while (x + 1 < w && matrix->fields[x + 1][y] == EMPTY)
+					{
+						moved = true;
+						set(x, y, VISITED, matrix);
+						str[y * (w + 1) + x] = getDirectionChar(prevDir, dir);
+						x++;
+						prevDir = dir;
+					}
+					break;
+				case 'D':
+					dir = DOWN;
+					while (y + 1 < h && matrix->fields[x][y + 1] == EMPTY)
+					{
+						moved = true;
+						set(x, y, VISITED, matrix);
+						str[y * (w + 1) + x] = getDirectionChar(prevDir, dir);
+						y++;
+						prevDir = dir;
+					}
+					break;
+				case 'L':
+					dir = LEFT;
+					while (x > 0 && matrix->fields[x - 1][y] == EMPTY)
+					{
+						moved = true;
+						set(x, y, VISITED, matrix);
+						str[y * (w + 1) + x] = getDirectionChar(prevDir, dir);
+						x--;
+						prevDir = dir;
+					}
+					break;
+				case 'U':
+					dir = UP;
+					while (y > 0 && matrix->fields[x][y - 1] == EMPTY)
+					{
+						moved = true;
+						set(x, y, VISITED, matrix);
+						str[y * (w + 1) + x] = getDirectionChar(prevDir, dir);
+						y--;
+						prevDir = dir;
+					}
+					break;
+				default:
+					break;
+			}
+			if (!moved)
+				fatalError(L"qpath is blocked!");
+
+			if (firstDir == NONE)
+				firstDir = dir;
+		}
+	}
+
+	str[y * (w + 1) + x] = L'\x25FE'; /* end point */
+
+	switch (firstDir)
+	{
+		case RIGHT:
+			str[startY * (w + 1) + startX] = L'\x25BA';
+			break;
+		case DOWN:
+			str[startY * (w + 1) + startX] = L'\x25BC';
+			break;
+		case LEFT:
+			str[startY * (w + 1) + startX] = L'\x25C0';
+			break;
+		case UP:
+			str[startY * (w + 1) + startX] = L'\x25B2';
+			break;
+		default:
+			break;
+	}
+
+	/* clean up */
+	for (y = 0; y < h; y++)
+		for (x = 0; x < w; x++)
+		{
+			if (matrix->fields[x][y] == VISITED)
+				set(x, y, EMPTY, matrix);
+		}
 }
 
-void
-toQPath(char* qpath, SolvingState* s)
+bool isSolved(FieldMatrix* matrix)
 {
-    uint x, y, w, h;
-    int i, moveI = 0;
-    bool moved;
-    char* path = s->path;
-    FieldMatrix* m = s->matrix;
-    FieldType** f = m->fields;
-    size_t pathLen;
-
-    if (!isValidPath(path))
-        fatalError(L"Not a valid path!");
-
-    x = s->startPoint.x;
-    y = s->startPoint.y;
-    if (f[x][y] != EMPTY)
-        fatalError(L"path starting point is not empty!");
-
-    w = m->width;
-    h = m->height;
-    pathLen = strlen(path);
-
-    for (i = 0; i < pathLen; i++)
-    {
-        if (!isSingleDirection(getConnections(x, y, m)))
-        {
-            qpath[moveI++] = path[i];
-        }
-
-        moved = false;
-
-        switch (path[i])
-        {
-        case 'R':
-            while (x + 1 < w && f[x + 1][y] == EMPTY)
-            {
-                moved = true;
-                set(x, y, VISITED, m);
-                x++;
-            }
-            break;
-        case 'D':
-            while (y + 1 < h && f[x][y + 1] == EMPTY)
-            {
-                moved = true;
-                set(x, y, VISITED, m);
-                y++;
-            }
-            break;
-        case 'L':
-            while (x > 0 && f[x - 1][y] == EMPTY)
-            {
-                moved = true;
-                set(x, y, VISITED, m);
-                x--;
-            }
-            break;
-        case 'U':
-            while (y > 0 && f[x][y - 1] == EMPTY)
-            {
-                moved = true;
-                set(x, y, VISITED, m);
-                y--;
-            }
-            break;
-        default:
-            break;
-        }
-
-        if (!moved)
-            fatalError(L"path is blocked!");
-    }
-
-    qpath[moveI] = '\0';
-
-    /* clean up */
-    for (y = 0; y < h; y++)
-        for (x = 0; x < w; x++)
-        {
-            if (f[x][y] == VISITED)
-                set(x, y, EMPTY, m);
-        }
+	return matrix->freeFieldCount == 0;
 }
 
-bool
-isHalfed(FieldMatrix* matrix)
+void toQPath(char* qpath, SolvingState* s)
 {
-    DirectedPoint p, nextP;
-    uint count = 0;
+	uint x, y, w, h;
+	int i, moveI = 0;
+	bool moved;
+	char* path = s->path;
+	FieldMatrix* m = s->matrix;
+	FieldType** f = m->fields;
+	size_t pathLen;
 
-    for (p.y = matrix->firstFreeField.y; p.y < matrix->height; p.y++)
-        for (p.x = 0; p.x < matrix->width; p.x++)
-        {
-            if (matrix->fields[p.x][p.y] == EMPTY)
-            {
-                /* found the first free field */
+	if (!isValidPath(path))
+		fatalError(L"Not a valid path!");
 
-                p.dirs = getConnections(p.x, p.y, matrix);
-                pushCountField(&p);
-                matrix->countedFields[p.x][p.y] = true;
+	x = s->startPoint.x;
+	y = s->startPoint.y;
+	if (f[x][y] != EMPTY)
+		fatalError(L"path starting point is not empty!");
 
-                while (tryPopCountField(&p))
-                {
-                    count++;
+	w = m->width;
+	h = m->height;
+	pathLen = strlen(path);
 
-                    if ((p.dirs & RIGHT) != 0 && !matrix->countedFields[p.x + 1][p.y])
-                    {
-                        nextP.x = p.x + 1;
-                        nextP.y = p.y;
-                        nextP.dirs = getConnections(p.x + 1, p.y, matrix) & ~LEFT;
-                        pushCountField(&nextP);
-                        matrix->countedFields[nextP.x][nextP.y] = true;
-                    }
+	for (i = 0; i < pathLen; i++)
+	{
+		if (!isSingleDirection(getConnections(x, y, m)))
+		{
+			qpath[moveI++] = path[i];
+		}
 
-                    if ((p.dirs & DOWN) != 0 && !matrix->countedFields[p.x][p.y + 1])
-                    {
-                        nextP.x = p.x;
-                        nextP.y = p.y + 1;
-                        nextP.dirs = getConnections(p.x, p.y + 1, matrix) & ~UP;
-                        pushCountField(&nextP);
-                        matrix->countedFields[nextP.x][nextP.y] = true;
-                    }
+		moved = false;
 
-                    if ((p.dirs & LEFT) != 0 && !matrix->countedFields[p.x - 1][p.y])
-                    {
-                        nextP.x = p.x - 1;
-                        nextP.y = p.y;
-                        nextP.dirs = getConnections(p.x - 1, p.y, matrix) & ~RIGHT;
-                        pushCountField(&nextP);
-                        matrix->countedFields[nextP.x][nextP.y] = true;
-                    }
+		switch (path[i])
+		{
+			case 'R':
+				while (x + 1 < w && f[x + 1][y] == EMPTY)
+				{
+					moved = true;
+					set(x, y, VISITED, m);
+					x++;
+				}
+				break;
+			case 'D':
+				while (y + 1 < h && f[x][y + 1] == EMPTY)
+				{
+					moved = true;
+					set(x, y, VISITED, m);
+					y++;
+				}
+				break;
+			case 'L':
+				while (x > 0 && f[x - 1][y] == EMPTY)
+				{
+					moved = true;
+					set(x, y, VISITED, m);
+					x--;
+				}
+				break;
+			case 'U':
+				while (y > 0 && f[x][y - 1] == EMPTY)
+				{
+					moved = true;
+					set(x, y, VISITED, m);
+					y--;
+				}
+				break;
+			default:
+				break;
+		}
 
-                    if ((p.dirs & UP) != 0 && !matrix->countedFields[p.x][p.y - 1])
-                    {
-                        nextP.x = p.x;
-                        nextP.y = p.y - 1;
-                        nextP.dirs = getConnections(p.x, p.y - 1, matrix) & ~DOWN;
-                        pushCountField(&nextP);
-                        matrix->countedFields[nextP.x][nextP.y] = true;
-                    }
-                }
+		if (!moved)
+			fatalError(L"path is blocked!");
+	}
 
-                clear2dArray((void**) matrix->countedFields, matrix->width, matrix->height,
-                        sizeof(bool));
+	qpath[moveI] = '\0';
 
-                return count != matrix->freeFieldCount;
-            }
-        }
-
-    fatalError(L"Matrix is already solved!");
-    return false;
+	/* clean up */
+	for (y = 0; y < h; y++)
+		for (x = 0; x < w; x++)
+		{
+			if (f[x][y] == VISITED)
+				set(x, y, EMPTY, m);
+		}
 }
 
-double
-getSuboptimalFieldPercentage(FieldMatrix* matrix)
+bool isHalfed(FieldMatrix* matrix)
 {
-    double suboptimalCount = 0;
-    uint x, y;
+	DirectedPoint p, nextP;
+	uint count = 0;
 
-    for (y = matrix->firstFreeField.y; y < matrix->height; y++)
-        for (x = 0; x < matrix->width; x++)
-        {
-            if (countInitConnections(x, y, matrix) > 2)
-                suboptimalCount++;
-        }
+	for (p.y = matrix->firstFreeField.y; p.y < matrix->height; p.y++)
+		for (p.x = 0; p.x < matrix->width; p.x++)
+		{
+			if (matrix->fields[p.x][p.y] == EMPTY)
+			{
+				/* found the first free field */
 
-    return suboptimalCount / matrix->initFreeFieldCount;
+				set2dArray((void**) matrix->countedFields, (int) false,
+						matrix->width, matrix->height, sizeof(bool));
+
+				p.dirs = getConnections(p.x, p.y, matrix);
+				pushCountField(&p);
+				matrix->countedFields[p.x][p.y] = true;
+
+				while (tryPopCountField(&p))
+				{
+					count++;
+
+					if ((p.dirs & RIGHT) != 0
+							&& !matrix->countedFields[p.x + 1][p.y])
+					{
+						nextP.x = p.x + 1;
+						nextP.y = p.y;
+						nextP.dirs = getConnections(p.x + 1, p.y, matrix)
+								& ~LEFT;
+						pushCountField(&nextP);
+						matrix->countedFields[nextP.x][nextP.y] = true;
+					}
+
+					if ((p.dirs & DOWN) != 0
+							&& !matrix->countedFields[p.x][p.y + 1])
+					{
+						nextP.x = p.x;
+						nextP.y = p.y + 1;
+						nextP.dirs = getConnections(p.x, p.y + 1, matrix) & ~UP;
+						pushCountField(&nextP);
+						matrix->countedFields[nextP.x][nextP.y] = true;
+					}
+
+					if ((p.dirs & LEFT) != 0
+							&& !matrix->countedFields[p.x - 1][p.y])
+					{
+						nextP.x = p.x - 1;
+						nextP.y = p.y;
+						nextP.dirs = getConnections(p.x - 1, p.y, matrix)
+								& ~RIGHT;
+						pushCountField(&nextP);
+						matrix->countedFields[nextP.x][nextP.y] = true;
+					}
+
+					if ((p.dirs & UP) != 0
+							&& !matrix->countedFields[p.x][p.y - 1])
+					{
+						nextP.x = p.x;
+						nextP.y = p.y - 1;
+						nextP.dirs = getConnections(p.x, p.y - 1, matrix)
+								& ~DOWN;
+						pushCountField(&nextP);
+						matrix->countedFields[nextP.x][nextP.y] = true;
+					}
+				}
+
+				return count != matrix->freeFieldCount;
+			}
+		}
+
+	fatalError(L"Matrix is already solved!");
+	return false;
 }
 
-uint
-countInitConnections(uint x, uint y, FieldMatrix* matrix)
+double getSuboptimalFieldPercentage(FieldMatrix* matrix)
 {
-    uint count = 0;
-    if (x + 1 < matrix->width && matrix->initConnections[2 * x + 1][y])
-        count++;
-    if (y + 1 < matrix->height && matrix->initConnections[2 * x][y])
-        count++;
-    if (x > 0 && matrix->initConnections[2 * x - 1][y])
-        count++;
-    if (y > 0 && matrix->initConnections[2 * x][y - 1])
-        count++;
-    return count;
+	double suboptimalCount = 0;
+	uint x, y;
+
+	for (y = matrix->firstFreeField.y; y < matrix->height; y++)
+		for (x = 0; x < matrix->width; x++)
+		{
+			if (countInitConnections(x, y, matrix) > 2)
+				suboptimalCount++;
+		}
+
+	return suboptimalCount / matrix->initFreeFieldCount;
 }
 
-void
-optimizeInitConnections(FieldMatrix* matrix)
+uint countInitConnections(uint x, uint y, FieldMatrix* matrix)
 {
-    //debugStr[0] = L'\n';
-    //wsprintMatrix(debugStr + 1, matrix);
-    //wsprintSuboptimalFields(debugStr + 1, matrix);
-    //debug(debugStr);
+	uint count = 0;
+	if (x + 1 < matrix->width && matrix->initConnections[2 * x + 1][y])
+		count++;
+	if (y + 1 < matrix->height && matrix->initConnections[2 * x][y])
+		count++;
+	if (x > 0 && matrix->initConnections[2 * x - 1][y])
+		count++;
+	if (y > 0 && matrix->initConnections[2 * x][y - 1])
+		count++;
+	return count;
 }
 
-void
-wsprintSuboptimalFields(wchar_t* str, FieldMatrix* matrix)
+void optimizeInitConnections(FieldMatrix* matrix)
 {
-    uint x, y, w, h;
+	/*
+	 debugStr[0] = L'\n';
+	 wsprintMatrix(debugStr + 1, matrix);
+	 wsprintSuboptimalFields(debugStr + 1, matrix);
+	 debug(debugStr);
+	 */
+}
 
-    w = matrix->width;
-    h = matrix->height;
+void wsprintSuboptimalFields(wchar_t* str, FieldMatrix* matrix)
+{
+	uint x, y, w, h;
 
-    for (y = matrix->firstFreeField.y; y < h; y++)
-        for (x = 0; x < w; x++)
-        {
-            if (countInitConnections(x, y, matrix) > 2)
-                str[y * (w + 1) + x] = SUBOPTIMAL_WCHAR;
-        }
+	w = matrix->width;
+	h = matrix->height;
+
+	for (y = matrix->firstFreeField.y; y < h; y++)
+		for (x = 0; x < w; x++)
+		{
+			if (countInitConnections(x, y, matrix) > 2)
+				str[y * (w + 1) + x] = SUBOPTIMAL_WCHAR;
+		}
 }
