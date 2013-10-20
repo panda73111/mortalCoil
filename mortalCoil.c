@@ -3,7 +3,6 @@
 
 int main(int argc, char** args)
 {
-
 	char* flashVarStr;
 	unsigned short level = 120;
 
@@ -16,6 +15,12 @@ int main(int argc, char** args)
 #ifndef EMBEDDED_SERMATRIX
 	char* serMatrixFilePath;
 	FILE* matrixFile;
+#endif
+
+#ifdef _WIN32
+	/* see http://wiki.eclipse.org/CDT/User/FAQ#Eclipse_console_does_not_show_output_on_Windows */
+	setvbuf(stdout, NULL, _IONBF, 0);
+	setvbuf(stderr, NULL, _IONBF, 0);
 #endif
 
 	flashVarStr = malloc((MAX_SERMATRIX_STRLEN + 1) * sizeof(char));
@@ -52,7 +57,8 @@ int main(int argc, char** args)
 	}
 #endif
 
-	setlocale(LC_ALL, "");
+	if (setlocale(LC_ALL, "") == NULL)
+	    wprintf(L"setlocale() failed!");
 
 	parseFlashVarStr(flashVarStr, &sm);
 	parseMatrix(&sm, &m);
